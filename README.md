@@ -1,10 +1,12 @@
 # Pipeline IA — Prospection B2B via BODACC
 
 > Reads France's official business registry (BODACC) every morning at 6am,
-> finds newly opened restaurants, scores them on 15 criteria, and generates
+> finds newly opened restaurants, scores them on 12 criteria, and generates
 > a personalized 5-touch email sequence using Claude.
 
 Built as a school project (L3 AI student, ESGI Paris) — ended up making it a real working system.
+
+![Demo](demo.gif)
 
 *First real test in progress — results coming soon.*
 
@@ -32,6 +34,10 @@ A restaurant that just opened has 3 things in common:
 
 BODACC publishes every French business registration, every day, for free.
 Nobody was using it for outbound prospecting.
+
+The same signal logic applies to B2B SaaS targets:
+a company posting "Chef de projet IA" on LinkedIn
+is in the same buying window as a restaurant that just opened.
 
 ---
 
@@ -84,20 +90,28 @@ Leads scored **< 40/100** get no email sequence generated — only a "cold lead"
 ## How It Works
 
 ### 1. Signal detection (BODACC)
+
 Every morning at 6am, the pipeline reads BODACC for:
 - New restaurant openings (`Créations`)
 - Ownership transfers (`Cessions`)
 - Active hiring signals — growth indicator
 
 ### 2. Lead scoring (0–100)
-15-criteria scoring with dynamic decrements:
+
+12-criteria scoring with dynamic decrements:
 
 | Signal | Points |
 |--------|--------|
 | BODACC signal < 30 days | +35 |
-| Competitor POS detected (Lightspeed, Zelty) | +25 |
+| BODACC signal 30–60 days | +20 |
+| No competitor POS detected (greenfield) | +25 |
 | Delivery without unified integration | +20 |
-| Manager identified on LinkedIn | +15 |
+| Manager identified on LinkedIn (high confidence) | +15 |
+| Fast-growth sector (fast food, asian, halal) | +10 |
+| Main establishment (not a branch) | +10 |
+| Multi-location detected | +10 |
+| Active hiring signal (expansion) | +10 |
+| SMP — external constraint (opening < 30 days) | +25 |
 | Inactive 30+ days | -20 |
 | Email bounce | -50 |
 
@@ -118,19 +132,47 @@ to describe itself and reintegrates them naturally. The prospect reads their own
 language — they feel understood, not spammed.
 
 ### 4. Contact extraction (free waterfall)
+
 1. Scrapes restaurant website (homepage + `/contact`) for email + phone via regex
 2. Falls back to TripAdvisor via Exa semantic search
 3. Falls back to Claude-estimated email format
 
 ### 5. Gerant confidence scoring
+
 LinkedIn enrichment via Exa returns a confidence score:
 - **High** — LinkedIn profile title or URL matches the restaurant name/city → used in email
 - **Low** — profile is ambiguous (wrong company, different city) → email uses generic opener, UI shows ⚠ badge
 
 ### 6. Daily operations
+
 - **6am cron job** — detects new signals, analyzes leads, sends digest email to sales team
 - **Streamlit dashboard** — "Today" tab shows Top 5 leads by ITO score, one-click email send
 - **Notion CRM** — automatic Kanban sync on every status change
+
+---
+
+## Two Modes
+
+### Mode A — Restaurant (BODACC)
+
+Targets newly opened restaurants via France's official business registry.
+Scoring based on 12 criteria including signal recency, POS competitor detection,
+LinkedIn manager identification, and expansion signals.
+
+### Mode B — Vertical SaaS
+
+Targets B2B SaaS companies in the same buying window:
+actively hiring an "AI project manager" = they have budget and a defined use case.
+
+| Signal | Points |
+|--------|--------|
+| Open "Chef de projet IA" job posting | +35 |
+| AI tools confirmed in stack (Claude, Dust, GPT) | +25 |
+| Recent growth signal (funding, expansion) | +20 |
+| Decision-maker identified (CEO, CTO, Head of Sales) | +15 |
+| Pain point documented publicly (blog, job post, interview) | +5 |
+
+Priority targets identified: Amenitiz, Skello, Inpulse, Fullsoon, Combo, Zelty, L'Addition.
 
 ---
 
@@ -182,7 +224,7 @@ Apollo.io charges €99/month. Clay charges €149/month. Neither writes the ema
 
 | Component | Tool |
 |-----------|------|
-| LLM | Claude Opus 4.6 (Anthropic) — Haiku in demo mode |
+| LLM | Claude Sonnet 4.6 (Anthropic) — Haiku in demo mode |
 | Semantic search + LinkedIn | Exa |
 | Signal source | BODACC (French public registry) |
 | Web scraping | `requests` + regex |
@@ -196,9 +238,9 @@ Apollo.io charges €99/month. Clay charges €149/month. Neither writes the ema
 ## Setup
 
 ```bash
-git clone https://github.com/AkmaDev/bodacc-prospection-pipeline
-cd bodacc-prospection-pipeline/agent_innovorder
-pip install anthropic python-dotenv requests streamlit
+git clone https://github.com/AkmaDev/prospection_pipeline
+cd prospection_pipeline
+pip install -r requirements.txt
 ```
 
 Copy `.env.example` → `.env`:
